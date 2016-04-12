@@ -26,6 +26,21 @@ pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
+struct proc * 
+getprocfortoken(uint token){
+  struct proc *p;
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state != UNUSED){
+      cprintf("Process %d token %d\n", p, p->shmem_tok);
+      if(p->shmem_tok == token){
+        return p;
+      }
+    }
+  }
+  return 0;
+}
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize

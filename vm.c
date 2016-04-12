@@ -89,6 +89,61 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
   return 0;
 }
 
+int shmget(uint token, char * addr, uint size){
+  uint uaddr = (uint)addr;
+  struct cpu *c;
+  c = &cpus[cpunum()];
+  struct proc * myproc = c->proc;
+
+  if(uaddr % PGSIZE != 0) return -1;
+  if(uaddr + size > 0x80000000) return -1;
+  cprintf("Size is : %d\n", size);
+  if(size > 0){
+    char *mem;
+    uint tmp = uaddr;
+    for(; uaddr < PGROUNDUP(size+tmp); uaddr += PGSIZE){
+      cprintf("Mapping the address: %p\n",uaddr);
+      if((mem = kalloc()) == 0){
+        cprintf("kalloc returned 0, exiting\n");
+        return -1;
+      }
+      memset(mem, 0, PGSIZE);
+      mappages(myproc->pgdir, (char*)uaddr, PGSIZE, v2p(mem), PTE_W|PTE_U|PTE_S);
+    }
+    myproc->startaddr = (char*)tmp;
+    myproc->shmem_tok = token;
+    myproc->shmem_size = size;
+    return 0;
+  }else{
+    struct proc * otherproc; 
+    if( ( otherproc = getprocfortoken( token ) ) == 0 )
+      return -1 ;
+
+    pde_t *pde_p;
+    pte_t *pgtab_p;
+    pde_t *pde_c;
+    pte_t *pgtab_c;
+    uint a;
+
+    for(a = 0 ; a < otherproc->shmem_size ; a += PGSIZE){
+      pde_p = &otherproc->pgdir[PDX(otherproc->startaddr+a)];
+      pde_c = &myproc->pgdir[PDX(uaddr+a)];//check that is present or make present
+      
+      *pde_c = (*pde_c)|(PTE_W|PTE_U|PTE_P);
+      
+      pgtab_p = (pte_t*)p2v(PTE_ADDR(*pde_p));
+      pgtab_c = (pte_t*)p2v(PTE_ADDR(*pde_c));
+
+      pgtab_p = &pgtab_p[PTX(otherproc->startaddr+a)];
+      pgtab_c = &pgtab_c[PTX(uaddr+a)];
+
+      *pgtab_c = *pgtab_p;
+    }
+    return 0;
+  }
+  return -1;
+}
+
 // There is one page table per process, plus one that's used when
 // a CPU is not running any process (kpgdir). The kernel uses the
 // current process's page table during system calls and interrupts;
@@ -254,7 +309,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   if(newsz >= oldsz)
     return oldsz;
-
   a = PGROUNDUP(newsz);
   for(; a  < oldsz; a += PGSIZE){
     pte = walkpgdir(pgdir, (char*)a, 0);

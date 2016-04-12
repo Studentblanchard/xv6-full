@@ -90,12 +90,15 @@ sys_uptime(void)
   return xticks;
 }
 
-int
-sys_halt(void)
+int 
+sys_shmget(void)
 {
-  //char *p = "Shutdown";
-  //for( ; *p; p++)
-    outw(0xB004, 0x2000);
-  return 0;
+  int token, size, addr;
+  if(argint(0, &token) < 0)
+    return -1;
+  if(argint(1, &addr) < 0)
+    return -1;
+  if(argint(2, &size) < 0)
+    return -1;
+  return shmget((uint)token, (char*)addr, (uint)size);
 }
-
