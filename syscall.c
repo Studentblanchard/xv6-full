@@ -99,6 +99,7 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_shmget(void);
+extern int sys_halt(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -123,6 +124,34 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_shmget]  sys_shmget,
+[SYS_halt]    sys_halt,
+};
+
+const char* syscall_names[] = 
+{
+	"fork",
+	"exit",
+	"wait",
+	"pipe",
+	"read",
+	"kill",
+	"exec",
+	"fstat",
+	"chdir",
+	"dup",
+	"getpid",
+	"sbrk",
+	"sleep",
+	"uptime",
+	"open",
+	"write",
+	"mknod",
+	"unlink",
+	"link",
+	"mkdir",
+	"close",
+	"shmget",
+	"halt",
 };
 
 void
@@ -133,6 +162,7 @@ syscall(void)
   num = proc->tf->eax;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     proc->tf->eax = syscalls[num]();
+    cprintf("%s -> %d\n", syscall_names[num-1],proc->tf->eax);
   } else {
     cprintf("%d %s: unknown sys call %d\n",
             proc->pid, proc->name, num);
